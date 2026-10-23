@@ -27,6 +27,19 @@ código grande y un anillo que se vacía en tiempo real.
   anchas) y `prefers-reduced-motion` respetado.
 
 ## Estructura
-Un solo `index.html`, sin build. `push_drexauth.py` publica en este repo
-vía la API de GitHub (Git Data API). La versión anterior del agente quedó
+Un solo `index.html`, sin build, más `manifest.webmanifest` e `icon.svg`
+para instalarla como app. `push_drexauth.py` publica en este repo vía la
+API de GitHub (Git Data API). La versión anterior del agente quedó
 guardada en `_v1-boone/` (no se publica).
+
+## Arreglos 2026-10-23 (segunda publicación)
+- El escaneo QR ya no depende del CDN de jsQR: usa primero el
+  `BarcodeDetector` nativo del navegador (cámara e imagen) y jsQR queda
+  de respaldo. Antes, si el CDN fallaba, la cámara ni siquiera abría.
+- Al editar una cuenta importada con un periodo distinto de 30/60 s, el
+  periodo se reseteaba a 30 y los códigos salían mal. Ahora el editor
+  conserva el periodo real (opciones 15/30/60/90 + valor importado).
+- La importación JSON normaliza algoritmo, dígitos, periodo y contador
+  (antes un `algo` tipo «SHA-256» o dígitos fuera de rango entraban tal
+  cual y rompían la generación).
+- Instalable: `theme-color` claro/oscuro, manifiesto e icono enlazados.

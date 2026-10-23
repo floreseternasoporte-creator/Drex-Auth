@@ -1,0 +1,1 @@
+{"background_color":"#E8EDF5","description":"Autenticador de dos pasos de Drex: códigos TOTP/HOTP sin servidores.","display":"standalone","icons":[{"purpose":"any","sizes":"any","src":"icon.svg","type":"image/svg+xml"}],"name":"Drex Auth","scope":".","short_name":"Drex Auth","start_url":".","theme_color":"#E8EDF5"}

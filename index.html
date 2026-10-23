@@ -1,4 +1,4 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body><title>Drex Auth</title>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#E8EDF5" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#05080F" media="(prefers-color-scheme: dark)"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Drex Auth"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="icon.svg"><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body><title>Drex Auth</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: una columna estrecha de tarjetas de cristal sobre un fondo de color, como Códigos de iOS.
@@ -481,7 +481,7 @@ textarea#fLink{
           <label class="cell"><span>Tipo</span><select id="fType"><option value="totp">Por tiempo (TOTP)</option><option value="hotp">Por contador (HOTP)</option></select></label>
           <label class="cell"><span>Algoritmo</span><select id="fAlgo"><option value="SHA1">SHA-1</option><option value="SHA256">SHA-256</option><option value="SHA512">SHA-512</option></select></label>
           <label class="cell"><span>Dígitos</span><select id="fDigits"><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
-          <label class="cell" id="periodCell"><span>Periodo</span><select id="fPeriod"><option value="30">30 segundos</option><option value="60">60 segundos</option></select></label>
+          <label class="cell" id="periodCell"><span>Periodo</span><select id="fPeriod"><option value="15">15 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="90">90 segundos</option></select></label>
           <label class="cell" id="counterCell" hidden><span>Contador</span><input id="fCounter" type="text" inputmode="numeric" value="0"></label>
         </div>
       </details>
@@ -741,8 +741,13 @@ function importText(text){
       (data.accounts || []).forEach(function(it){
         var p = it.otpauth ? parseOtpAuth(it.otpauth) : null;
         if (!p && it.secret && base32Decode(it.secret)){
+          var algoN = String(it.algo || "SHA1").toUpperCase().replace("-", "");
+          if (["SHA1","SHA256","SHA512"].indexOf(algoN) < 0) algoN = "SHA1";
+          var digN = parseInt(it.digits, 10); if ([6,7,8].indexOf(digN) < 0) digN = 6;
+          var perN = parseInt(it.period, 10); if (!(perN > 0)) perN = 30;
+          var cntN = parseInt(it.counter, 10); if (isNaN(cntN) || cntN < 0) cntN = 0;
           p = normalize({ id: uid(), issuer: it.issuer || "Cuenta", name: it.name || "", secret: String(it.secret).toUpperCase().replace(/[\s-]/g, ""),
-            type: it.type === "hotp" ? "hotp" : "totp", algo: it.algo || "SHA1", digits: it.digits || 6, period: it.period || 30, counter: it.counter || 0 });
+            type: it.type === "hotp" ? "hotp" : "totp", algo: algoN, digits: digN, period: perN, counter: cntN });
         }
         if (p) list.push(p);
       });
@@ -1017,7 +1022,9 @@ function openEdit(id){
   seg.hidden = true; $("btnDelete").hidden = false; $("btnSave").textContent = "Guardar cambios";
   fIssuer.value = a.issuer || ""; fName.value = a.name || ""; fSecret.value = a.secret;
   fType.value = a.type || "totp"; fAlgo.value = a.algo || "SHA1"; fDigits.value = String(a.digits || 6);
-  fPeriod.value = String(a.period === 60 ? 60 : 30); fCounter.value = String(a.counter || 0);
+  var per = String(a.period || 30);
+  if (!fPeriod.querySelector('option[value="' + per + '"]')){ var op = document.createElement("option"); op.value = per; op.textContent = per + " segundos"; fPeriod.appendChild(op); }
+  fPeriod.value = per; fCounter.value = String(a.counter || 0);
   clearErrors(); syncType(); setTab("manual"); showSheet();
 }
 function closeSheet(){ overlay.hidden = true; document.body.classList.remove("locked"); stopCamera(); }
@@ -1085,6 +1092,8 @@ document.addEventListener("keydown", function(ev){
 /* ================= Escáner QR ================= */
 var vf = $("viewfinder"), video = $("video"), idleText = $("idleText"), btnCam = $("btnCam");
 var stream = null, raf = null, canvas = document.createElement("canvas");
+var bdet = null;
+try { if ("BarcodeDetector" in window) bdet = new BarcodeDetector({ formats: ["qr_code"] }); } catch(e){ bdet = null; }
 var IDLE = "Apunta la cámara al código QR. También puedes elegir, arrastrar o pegar una imagen.";
 function resetIdle(){ idleText.textContent = IDLE; }
 function stopCamera(){
@@ -1105,6 +1114,14 @@ function onQr(text){
 }
 function scanFrame(){
   if (!stream) return;
+  if (bdet){
+    bdet.detect(video).then(function(codes){
+      if (!stream) return;
+      if (codes && codes.length && codes[0].rawValue && onQr(codes[0].rawValue)) return;
+      if (stream) raf = requestAnimationFrame(scanFrame);
+    }).catch(function(){ if (stream) raf = requestAnimationFrame(scanFrame); });
+    return;
+  }
   if (video.readyState >= 2 && video.videoWidth){
     var w = video.videoWidth, h = video.videoHeight, k = Math.min(1, 720 / Math.max(w, h));
     canvas.width = Math.round(w * k); canvas.height = Math.round(h * k);
@@ -1120,7 +1137,7 @@ function scanFrame(){
 }
 btnCam.addEventListener("click", function(){
   if (stream){ stopCamera(); resetIdle(); return; }
-  if (!window.jsQR){ idleText.textContent = "El lector de QR no cargó. Revisa tu conexión o usa la clave."; return; }
+  if (!window.jsQR && !bdet){ idleText.textContent = "El lector de QR no cargó. Revisa tu conexión o usa la clave."; return; }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     idleText.textContent = "Este navegador no permite usar la cámara. Elige una imagen con el QR o usa la clave."; return;
   }
@@ -1132,6 +1149,17 @@ btnCam.addEventListener("click", function(){
   });
 });
 function scanBlob(blob){
+  if (bdet && window.createImageBitmap){
+    createImageBitmap(blob).then(function(bmp){ return bdet.detect(bmp); }).then(function(codes){
+      if (codes && codes.length && codes[0].rawValue){
+        if (!onQr(codes[0].rawValue)) toast("Ese QR no es de un autenticador");
+      } else scanBlobJsqr(blob);
+    }).catch(function(){ scanBlobJsqr(blob); });
+    return;
+  }
+  scanBlobJsqr(blob);
+}
+function scanBlobJsqr(blob){
   if (!window.jsQR){ toast("El lector de QR no cargó. Usa la clave o el enlace."); return; }
   var img = new Image(), url = URL.createObjectURL(blob);
   img.onload = function(){
