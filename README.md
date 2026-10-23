@@ -43,3 +43,19 @@ guardada en `_v1-boone/` (no se publica).
   (antes un `algo` tipo «SHA-256» o dígitos fuera de rango entraban tal
   cual y rompían la generación).
 - Instalable: `theme-color` claro/oscuro, manifiesto e icono enlazados.
+
+## Arreglos 2026-10-23 (tercera publicación)
+- **Migración de Google Authenticator**: un campo desconocido o truncado
+  al final del payload protobuf descartaba TODAS las cuentas (el parser
+  lanzaba y se devolvía lista vacía). Ahora se conserva lo ya leído.
+  Probado con un payload de migración en formato real.
+- **Filtro de búsqueda atascado**: con 4+ cuentas se buscaba, se borraban
+  cuentas hasta bajar de 4, la barra de búsqueda desaparecía pero el
+  filtro seguía aplicado sin forma de quitarlo. Ahora se limpia solo.
+- **Carrera al editar/borrar**: un código que se estaba calculando podía
+  guardarse en caché y pintarse tras editar la cuenta (código viejo).
+  Los cálculos ahora llevan la revisión de la bóveda y se descartan si
+  hubo cambios mientras tanto.
+- El lector nativo espera a que la cámara tenga imagen antes de detectar
+  (evita errores en frío), y el botón de cuenta de ejemplo ya no anuncia
+  «añadida» cuando en realidad era duplicada.

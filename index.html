@@ -524,7 +524,9 @@ var LS_KEY = "drexauth.accounts.v1", LS_HIDE = "drexauth.hide";
 var accounts = [];
 var storageWarned = false;
 try { var raw = localStorage.getItem(LS_KEY); if (raw){ var v = JSON.parse(raw); if (Array.isArray(v)) accounts = v; } } catch(e){}
+var vaultRev = 0;
 function persist(){
+  vaultRev++;
   try { localStorage.setItem(LS_KEY, JSON.stringify(accounts)); }
   catch(e){ if (!storageWarned){ storageWarned = true; toast("Este navegador no deja guardar datos. Exporta un respaldo."); } }
 }
@@ -676,7 +678,7 @@ function readFields(buf){
     else if (wire === 2){ r = readVarint(buf, pos); var len = r[0]; pos = r[1]; out.push({ f: field, b: buf.subarray(pos, pos + len) }); pos += len; }
     else if (wire === 1) pos += 8;
     else if (wire === 5) pos += 4;
-    else throw new Error("formato");
+    else break;
   }
   return out;
 }
@@ -789,8 +791,10 @@ function codeFor(a, c){
   var key = a.id + ":" + c;
   if (!pending[key]){
     pending[key] = true;
+    var rev = vaultRev;
     generateCode(a, c).then(function(code){
       delete pending[key];
+      if (rev !== vaultRev) return;
       var mm = cache[a.id] || (cache[a.id] = {});
       mm[c] = code || "";
       Object.keys(mm).forEach(function(k){ if (+k < c - 2) delete mm[k]; });
@@ -803,6 +807,7 @@ var ICON_CHEV = '<svg class="chev" width="12" height="20" viewBox="0 0 12 20" fi
 var ICON_OK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 
 function render(){
+  if (accounts.length < 4 && searchInput.value) searchInput.value = "";
   var q = searchInput.value.trim().toLowerCase();
   var has = accounts.length > 0;
   emptyEl.hidden = has;
@@ -1034,8 +1039,8 @@ $("sheetClose").addEventListener("click", closeSheet);
 overlay.addEventListener("click", function(ev){ if (ev.target === overlay) closeSheet(); });
 
 $("btnDemo").addEventListener("click", function(){
-  addMany([normalize({ id: uid(), issuer: "Ejemplo", name: "demo@drex.app", secret: "JBSWY3DPEHPK3PXP", type: "totp", algo: "SHA1", digits: 6, period: 30, counter: 0 })]);
-  toast("Cuenta de ejemplo añadida");
+  var r = addMany([normalize({ id: uid(), issuer: "Ejemplo", name: "demo@drex.app", secret: "JBSWY3DPEHPK3PXP", type: "totp", algo: "SHA1", digits: 6, period: 30, counter: 0 })]);
+  toast(r.added ? "Cuenta de ejemplo añadida" : "La cuenta de ejemplo ya está en la lista");
 });
 
 $("paneManual").addEventListener("submit", function(ev){
@@ -1115,6 +1120,7 @@ function onQr(text){
 function scanFrame(){
   if (!stream) return;
   if (bdet){
+    if (video.readyState < 2){ raf = requestAnimationFrame(scanFrame); return; }
     bdet.detect(video).then(function(codes){
       if (!stream) return;
       if (codes && codes.length && codes[0].rawValue && onQr(codes[0].rawValue)) return;
